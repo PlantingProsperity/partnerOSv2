@@ -10,14 +10,17 @@
 - `GET` list/detail endpoints <= 300 ms under nominal load.
 - `POST/PATCH` state transition endpoints <= 800 ms under nominal load.
 - Underwriting compute request <= 2 seconds for standard payload sizes.
+- AI recommendation round-trip p95 <= 8 seconds for standard context payloads.
 - UI first meaningful paint <= 2.5 seconds on corporate laptop baseline.
 
 ## 2. Reliability and Availability
 
 - Target availability (hosted env): 99.5% monthly.
+- AI recommendation service availability target: 99.0% monthly.
 - Local deployment target: recoverable operation after process restart with zero data loss in committed transactions.
 - Background jobs are retry-safe and idempotent.
 - Error budget: <= 3.6 hours unavailability per month for hosted env.
+- During AI outage, user-facing degraded mode must be explicit and auditable.
 
 ## 3. Scalability
 
@@ -45,6 +48,7 @@
 
 - Structured logs with correlation/request IDs.
 - Metrics for API latency, queue depth, job failures, and transition failure rates.
+- Metrics for AI latency, failure rates, token usage, and recommendation acceptance/rejection ratio.
 - Traceability for high-latency and failed requests.
 - Alert thresholds:
 - API error rate > 2% for 5 minutes.
@@ -52,5 +56,6 @@
 
 ## 7. Cost Constraints
 
-- MVP infrastructure target <= $1,500/month for hosted environments.
-- Tooling choices should favor open-source defaults unless paid service meaningfully reduces delivery risk.
+- Paid tooling budget target: $0/month for SaaS dependencies in MVP.
+- Exception: existing Google AI Pro subscription is approved.
+- Infrastructure spend should stay as low as possible by favoring local/self-hosted open-source components.

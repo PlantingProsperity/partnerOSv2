@@ -6,9 +6,9 @@
 
 ## 1. Timeline and Milestones
 
-- Milestone 0 (2026-03-09 to 2026-03-20): architecture baseline, repo scaffolding, schema contracts.
-- Milestone 1 (2026-03-23 to 2026-04-24): core Lead/Analysis/Deal/Case APIs + internal UI.
-- Milestone 2 (2026-04-27 to 2026-05-22): document flow, alerts, audit timeline hardening.
+- Milestone 0 (2026-03-09 to 2026-03-20): architecture baseline, repo scaffolding, schema contracts, AI gateway proof-of-concept.
+- Milestone 1 (2026-03-23 to 2026-04-24): core Lead/Analysis/Deal/Case APIs + internal UI + AI recommendation loop.
+- Milestone 2 (2026-04-27 to 2026-05-22): document flow, alerts, AI auditability, degraded-mode hardening.
 - Milestone 3 (2026-05-25 to 2026-06-12): pilot rollout, bug fixes, operational readiness.
 
 ## 2. Team Capacity and Roles
@@ -44,6 +44,7 @@
 - Unit/integration tests added and passing.
 - Security and permission checks validated.
 - Observability hooks (logs/metrics) included.
+- AI recommendation and approval-gate behavior validated with tests.
 - Documentation updated in `docs/`.
 
 ## 7. Dependencies and Blockers
@@ -52,3 +53,5 @@
 - Selection of auth provider and integration stack.
 - Confirmed legal/compliance checklist per target market.
 - Availability of production-like test data sets.
+- Confirmation that MVP will use free/open-source tooling only (except Google AI Pro).
+- Confirmed Gemini runtime access method and quota envelope under Google AI Pro constraints.

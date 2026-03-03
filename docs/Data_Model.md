@@ -15,6 +15,9 @@
 - `Document`: storage metadata, checksum, entity links.
 - `ActivityLog`: immutable event stream for state changes.
 - `Task`: actionable work with due date and owner.
+- `AISession`: scoped context for AI interaction windows.
+- `AIRecommendation`: structured recommendation, rationale, and confidence.
+- `ApprovalGate`: human decision records for AI-proposed high-risk actions.
 
 ## 2. Relationships
 
@@ -24,6 +27,9 @@
 - A `Property` can link to many leads/deals/cases.
 - A `Document` can link to one or more core entities.
 - Every state-changing write must emit one `ActivityLog` entry.
+- Each core workflow entity can have many `AISession` records.
+- Each `AISession` can emit many `AIRecommendation` records.
+- Each high-risk `AIRecommendation` must link to one `ApprovalGate` record before execution.
 
 ## 3. Schema Rules and Constraints
 
@@ -32,6 +38,7 @@
 - Financial numeric fields use fixed precision decimal types.
 - Required fields enforced at API boundary and DB constraint layer.
 - Soft-delete uses `archived_at` + `archived_by` metadata.
+- AI records store model ID/version, prompt hash, and response token usage metadata.
 
 ## 4. Data Lifecycle
 

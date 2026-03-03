@@ -11,6 +11,7 @@
 - Transaction Coordinator
 - Operations Manager
 - Principal/Partner
+- AI Partner
 - System Agent (automations only)
 
 ## 2. Core Flows
@@ -70,6 +71,17 @@
 4. Record ingestion event in timeline.
 - Postconditions: Document discoverable by entity and checklist state.
 
+### 2.6 AI Partner Orchestration Loop
+
+- Trigger: User initiates or system requires a workflow decision.
+- Preconditions: Authenticated session and linked entity context exists.
+- Main Steps:
+1. System sends normalized context packet to AI partner.
+2. AI returns recommendation, rationale, and confidence signal.
+3. User accepts, edits, or rejects recommendation.
+4. System records AI output + final human decision in timeline.
+- Postconditions: AI interaction is traceable and linked to resulting action.
+
 ## 3. Alternate Flows
 
 - Lead can move to `Nurture` with recurring follow-up reminders.
@@ -94,5 +106,6 @@
 ## 6. UX Notes and Constraints
 
 - Every state transition requires optional notes and explicit confirmation.
+- Core workflow actions require an AI recommendation trace plus human confirmation for high-risk steps.
 - High-risk actions (close deal, waive contingency, mark case resolved) require elevated role confirmation.
 - Timeline view must show actor, action, timestamp, and rationale in one screen.

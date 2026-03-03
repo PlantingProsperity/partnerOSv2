@@ -14,6 +14,9 @@
 - Background jobs: Redis-backed worker queue (RQ or Celery).
 - Frontend (internal MVP): Streamlit or thin web client consuming REST API.
 - Test stack: `pytest`, contract tests for APIs, migration tests.
+- AI orchestration layer: Gemini gateway service + prompt/version management.
+- Storage/object files: local filesystem (MVP) or MinIO (self-hosted).
+- Observability: Prometheus + Grafana + Loki (open-source stack).
 
 ## 2. Disallowed Technologies (MVP)
 
@@ -21,6 +24,7 @@
 - No direct production writes outside service APIs.
 - No tight coupling to a single AI provider API in core business logic.
 - No browser-only local storage as system of record.
+- No paid SaaS tooling dependencies, except approved Google AI Pro usage.
 
 ## 3. Hosting and Infrastructure Constraints
 
@@ -31,8 +35,9 @@
 ## 4. Build vs Buy Decisions
 
 - Build in-house: core workflow/state engine, audit timeline, schema model.
-- Buy/integrate: messaging delivery, e-signature, optional auth provider.
-- Any purchased service must have clear fallback path or degradation mode.
+- Build in-house: AI orchestration, context assembly, and approval-gate enforcement.
+- Integrate free/open services only for MVP (SMTP, OSM, self-hosted tools).
+- Any integration must have clear fallback path or degradation mode.
 
 ## 5. Data Residency and Regional Constraints
 
@@ -43,6 +48,7 @@
 ## 6. Operational Constraints
 
 - All workflow transitions must be deterministic and replay-safe.
+- Core workflow transitions must reference a persisted AI recommendation event.
 - Time computations must be timezone-aware (`America/Los_Angeles` default for business deadlines).
 - Manual overrides require reason and actor metadata.
 

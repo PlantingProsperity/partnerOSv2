@@ -6,7 +6,7 @@
 
 ## 1. Scope
 
-This specification covers MVP functional behavior for lead intake, underwriting analysis, deal management, case management, document linkage, timeline logging, and permissions.
+This specification covers MVP functional behavior for AI-driven lead intake, underwriting analysis, deal management, case management, document linkage, timeline logging, and permissions.
 
 ## 2. Functional Requirements
 
@@ -30,6 +30,10 @@ This specification covers MVP functional behavior for lead intake, underwriting 
 - FR-018: System shall flag overdue tasks/deadlines and surface alerts.
 - FR-019: System shall support soft-delete/archive with restore controls for authorized users.
 - FR-020: System shall persist actor-provided rationale for manual overrides.
+- FR-021: System shall create and persist AI interaction sessions linked to workflow entities.
+- FR-022: System shall require AI recommendation events for core workflow actions before transition execution.
+- FR-023: System shall require human approval for irreversible or high-risk actions, storing both AI rationale and human decision.
+- FR-024: System shall enter explicit degraded mode on AI runtime unavailability and queue/retry AI-required actions.
 
 ## 3. Acceptance Criteria
 
@@ -43,6 +47,10 @@ This specification covers MVP functional behavior for lead intake, underwriting 
 - AC-008: Archived records are hidden by default but retrievable by privileged users.
 - AC-009: Document linked to entity is queryable from both document and entity endpoints.
 - AC-010: Overdue alert appears within one minute of threshold breach.
+- AC-011: Core transition endpoints reject requests without linked AI recommendation IDs.
+- AC-012: High-risk actions persist AI rationale + human approver in one atomic audit event.
+- AC-013: AI session artifacts are queryable by entity and time range.
+- AC-014: During AI outage, blocked actions return explicit degraded-mode response code and user guidance.
 
 ## 4. Traceability
 
@@ -51,3 +59,4 @@ This specification covers MVP functional behavior for lead intake, underwriting 
 - Deal flow maps to FR-006, FR-007, FR-008, FR-012, FR-018.
 - Case flow maps to FR-009, FR-010, FR-013.
 - Document flow maps to FR-011, FR-012, FR-014.
+- AI flow maps to FR-021, FR-022, FR-023, FR-024.

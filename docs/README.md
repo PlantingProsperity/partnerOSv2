@@ -11,7 +11,9 @@ Partner_OS_v2 is an internal operating platform for real-estate investment/broke
 - Deployment model is local-first for early releases, with optional cloud-hosted environments later.
 - Primary users are internal team members (not public customers).
 - Data model centers on `Lead -> Analysis -> Deal -> Case` with shared document and activity logs.
-- AI is advisory/assistive and must never bypass explicit human approval checkpoints.
+- AI partner is a core MVP capability and primary reasoning engine across lead, deal, and case workflows.
+- Human principals retain final authority for irreversible actions.
+- Tooling policy is free/open-source only, except allowed use of existing Google AI Pro subscription.
 
 ## Document Set
 
@@ -32,3 +34,4 @@ Partner_OS_v2 is an internal operating platform for real-estate investment/broke
 - `Requirements_Spec.md` and `User_Flows.md` are traceable to each other.
 - `Architecture_Constraints.md` and `NFRs.md` have no critical conflicts.
 - Security and integration owners are assigned.
+- AI runtime access path and degraded-mode policy are explicitly approved.

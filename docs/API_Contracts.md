@@ -8,7 +8,7 @@
 
 - Internal domain API: Partner_OS_v2 service (`/api/v1`).
 - Internal admin API: operational diagnostics and maintenance endpoints.
-- External APIs (planned): messaging provider, e-signature provider, enrichment/geocoding.
+- External APIs (planned): Google Gemini (core), messaging provider, e-signature provider, enrichment/geocoding.
 
 ## 2. Protocols and Formats
 
@@ -38,6 +38,10 @@
 - `POST /api/v1/cases/{case_id}/transitions`
 - `POST /api/v1/documents/import`
 - `GET /api/v1/timeline`
+- `POST /api/v1/ai/sessions`
+- `POST /api/v1/ai/recommendations`
+- `POST /api/v1/ai/recommendations/{recommendation_id}/approve`
+- `GET /api/v1/ai/sessions/{session_id}`
 
 Schema source of truth to be published as OpenAPI at `/openapi.json`.
 
@@ -70,5 +74,6 @@ HTTP status mapping:
 
 - Internal UI token: 600 requests/minute.
 - Service integration token: 120 requests/minute.
+- AI recommendation endpoint target: 60 requests/minute per authenticated user.
 - Default request timeout: 15 seconds.
 - Long-running jobs return asynchronous job IDs.

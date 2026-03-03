@@ -6,34 +6,16 @@
 
 ## 1. Third-Party Services
 
-### INT-001 Messaging Provider (Twilio or equivalent)
-
-- Purpose: outbound SMS/voice notifications for follow-ups and deadline alerts.
-- Owner: Operations Engineering.
-- Auth method: API key + account SID.
-- Rate limit: provider-defined, enforce local queue throttling.
-- SLA: provider default.
-- Failure mode: queue retry with exponential backoff; fallback to email.
-
-### INT-002 Email Provider (SendGrid or equivalent)
+### INT-001 Email Delivery (SMTP)
 
 - Purpose: transactional notifications and report delivery.
-- Owner: Platform Engineering.
-- Auth method: API key.
-- Rate limit: provider-defined.
+- Owner: Operations Engineering.
+- Auth method: SMTP credentials (app password or service account).
+- Rate limit: provider-defined, enforce local queue throttling.
 - SLA: provider default.
-- Failure mode: retry + dead-letter queue after max attempts.
+- Failure mode: queue retry with exponential backoff; fallback to in-app alerts.
 
-### INT-003 E-signature Provider (DocuSign or equivalent) [Phase 2]
-
-- Purpose: signature workflows for offer and compliance documents.
-- Owner: Transaction Operations.
-- Auth method: OAuth client credentials.
-- Rate limit: provider-defined.
-- SLA: provider default.
-- Failure mode: revert to manual signature runbook.
-
-### INT-004 Geocoding/Property Data Enrichment [Optional]
+### INT-002 Mapping/Geocoding (OpenStreetMap Nominatim or equivalent free source)
 
 - Purpose: normalize addresses and enrich basic property metadata.
 - Owner: Data Engineering.
@@ -41,6 +23,24 @@
 - Rate limit: provider-defined.
 - SLA: best effort.
 - Failure mode: manual entry path remains available.
+
+### INT-003 E-signature Workflow [Manual or Self-Hosted, Phase 2]
+
+- Purpose: signature workflows for offer and compliance documents.
+- Owner: Transaction Operations.
+- Auth method: local/manual flow in MVP; self-hosted option in later phase.
+- Rate limit: n/a for manual flow.
+- SLA: internal operational process.
+- Failure mode: revert to manual signature runbook.
+
+### INT-004 AI Core Partner (Google Gemini via existing Google AI Pro subscription)
+
+- Purpose: core reasoning, recommendation generation, and decision support across all primary workflows.
+- Owner: Platform Engineering.
+- Auth method: approved Google account / configured API key when available.
+- Rate limit: subscription or provider limits.
+- SLA: provider default.
+- Failure mode: enter degraded mode, queue AI-required actions, and require explicit human override workflow for continuity.
 
 ## 2. Events, Webhooks, and Callbacks
 
@@ -53,6 +53,7 @@
 - Contract definitions must be versioned and testable.
 - PII-minimized payloads are required wherever feasible.
 - Integration adapters must map provider errors to internal error codes.
+- Paid APIs are disallowed for MVP unless explicitly approved in writing.
 
 ## 4. Monitoring and Alerting Responsibilities
 
