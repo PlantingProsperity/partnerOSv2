@@ -41,3 +41,12 @@ def get_db() -> Generator[Session, None, None]:
 
 def init_db() -> None:
     Base.metadata.create_all(bind=get_engine())
+
+
+def reset_db_state() -> None:
+    """Clear cached engine/session factory; used by tests."""
+    global _engine, _SessionLocal
+    if _engine is not None:
+        _engine.dispose()
+    _engine = None
+    _SessionLocal = None
