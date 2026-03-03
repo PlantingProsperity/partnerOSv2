@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Body, Depends
 from sqlalchemy.orm import Session
 
 from partner_os_v2.api.deps import get_app_settings, get_current_user
+from partner_os_v2.api.errors import error_responses, workflow_http_error
 from partner_os_v2.config import Settings
 from partner_os_v2.db import get_db
 from partner_os_v2.models import Analysis, User
@@ -16,20 +17,37 @@ from partner_os_v2.services.workflow import WorkflowError, require_recommendatio
 router = APIRouter(prefix="/api/v1/analyses", tags=["analyses"])
 
 
-@router.post("", response_model=AnalysisOut)
+@router.post(
+    "",
+    response_model=AnalysisOut,
+    responses=error_responses(401, 409),
+)
 def create_analysis(
-    payload: AnalysisCreate,
+    payload: AnalysisCreate = Body(
+        ...,
+        openapi_examples={
+            "default": {
+                "summary": "Create analysis",
+                "value": {
+                    "lead_id": "4a21b4ec-e8c0-4df2-bf6b-aaf5de3d01f0",
+                    "arv": 420000,
+                    "rehab_budget": 60000,
+                    "recommendation_id": "b6bb98fe-dd03-40f0-9010-3f46e46d8bcf",
+                },
+            }
+        },
+    ),
     db: Session = Depends(get_db),
     settings: Settings = Depends(get_app_settings),
     user: User = Depends(get_current_user),
 ) -> AnalysisOut:
     if settings.require_ai_recommendation and not payload.recommendation_id:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Recommendation required")
+        raise workflow_http_error("Recommendation required")
     if payload.recommendation_id:
         try:
             require_recommendation_exists(db, payload.recommendation_id)
         except WorkflowError as exc:
-            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
+            raise workflow_http_error(str(exc)) from exc
 
     analysis = Analysis(
         lead_id=payload.lead_id,
@@ -59,10 +77,26 @@ def create_analysis(
     return AnalysisOut.model_validate(analysis, from_attributes=True)
 
 
-@router.post("/{analysis_id}/decision", response_model=AnalysisOut)
+@router.post(
+    "/{analysis_id}/decision",
+    response_model=AnalysisOut,
+    responses=error_responses(401, 404, 409, 503),
+)
 def decide_analysis(
     analysis_id: str,
-    payload: AnalysisDecisionRequest,
+    payload: AnalysisDecisionRequest = Body(
+        ...,
+        openapi_examples={
+            "default": {
+                "summary": "Analysis decision transition",
+                "value": {
+                    "status": "under_review",
+                    "recommendation_id": "12d30ab8-cfe8-46d5-b855-449677815c95",
+                    "reason": "Ready for principal review",
+                },
+            }
+        },
+    ),
     db: Session = Depends(get_db),
     settings: Settings = Depends(get_app_settings),
     user: User = Depends(get_current_user),
@@ -80,14 +114,7 @@ def decide_analysis(
             actor_role=user.role,
         )
     except WorkflowError as exc:
-        msg = str(exc)
-        if msg.startswith("DEGRADED:"):
-            blocked_id = msg.split(":", maxsplit=1)[1]
-            raise HTTPException(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail={"code": "degraded_mode", "blocked_action_id": blocked_id},
-            ) from exc
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=msg) from exc
+        raise workflow_http_error(str(exc)) from exc
 
     db.commit()
     db.refresh(analysis)

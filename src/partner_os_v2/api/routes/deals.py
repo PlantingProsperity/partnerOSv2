@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Body, Depends
 from sqlalchemy.orm import Session
 
 from partner_os_v2.api.deps import get_app_settings, get_current_user
+from partner_os_v2.api.errors import error_responses, workflow_http_error
 from partner_os_v2.config import Settings
 from partner_os_v2.db import get_db
 from partner_os_v2.models import Deal, User
@@ -16,20 +17,37 @@ from partner_os_v2.services.workflow import WorkflowError, require_recommendatio
 router = APIRouter(prefix="/api/v1/deals", tags=["deals"])
 
 
-@router.post("", response_model=DealOut)
+@router.post(
+    "",
+    response_model=DealOut,
+    responses=error_responses(401, 409),
+)
 def create_deal(
-    payload: DealCreate,
+    payload: DealCreate = Body(
+        ...,
+        openapi_examples={
+            "default": {
+                "summary": "Create deal",
+                "value": {
+                    "analysis_id": "0a2f7106-e028-42a0-883b-3354c2a5eec6",
+                    "property_address": "123 Main St, Vancouver, WA 98660",
+                    "purchase_price": 325000,
+                    "recommendation_id": "56ce4846-8fac-419f-9cbc-32f5f9f709af",
+                },
+            }
+        },
+    ),
     db: Session = Depends(get_db),
     settings: Settings = Depends(get_app_settings),
     user: User = Depends(get_current_user),
 ) -> DealOut:
     if settings.require_ai_recommendation and not payload.recommendation_id:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Recommendation required")
+        raise workflow_http_error("Recommendation required")
     if payload.recommendation_id:
         try:
             require_recommendation_exists(db, payload.recommendation_id)
         except WorkflowError as exc:
-            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
+            raise workflow_http_error(str(exc)) from exc
 
     deal = Deal(
         analysis_id=payload.analysis_id,
@@ -55,10 +73,26 @@ def create_deal(
     return DealOut.model_validate(deal, from_attributes=True)
 
 
-@router.post("/{deal_id}/stages", response_model=DealOut)
+@router.post(
+    "/{deal_id}/stages",
+    response_model=DealOut,
+    responses=error_responses(401, 404, 409, 503),
+)
 def transition_deal(
     deal_id: str,
-    payload: TransitionRequest,
+    payload: TransitionRequest = Body(
+        ...,
+        openapi_examples={
+            "default": {
+                "summary": "Deal stage transition",
+                "value": {
+                    "to_state": "negotiation",
+                    "recommendation_id": "f2ca61c2-0ec6-4ea2-8047-5412b11ce52c",
+                    "reason": "Offer package ready",
+                },
+            }
+        },
+    ),
     db: Session = Depends(get_db),
     settings: Settings = Depends(get_app_settings),
     user: User = Depends(get_current_user),
@@ -76,14 +110,7 @@ def transition_deal(
             actor_role=user.role,
         )
     except WorkflowError as exc:
-        msg = str(exc)
-        if msg.startswith("DEGRADED:"):
-            blocked_id = msg.split(":", maxsplit=1)[1]
-            raise HTTPException(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail={"code": "degraded_mode", "blocked_action_id": blocked_id},
-            ) from exc
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=msg) from exc
+        raise workflow_http_error(str(exc)) from exc
 
     db.commit()
     db.refresh(deal)

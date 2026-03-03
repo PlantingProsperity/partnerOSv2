@@ -2,14 +2,17 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from datetime import datetime, timezone
+
+from fastapi import APIRouter, Body, Depends, Query, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from partner_os_v2.api.deps import get_app_settings, get_current_user, require_roles
+from partner_os_v2.api.errors import api_error, error_responses
 from partner_os_v2.config import Settings
-from partner_os_v2.domain import is_high_risk
 from partner_os_v2.db import get_db
+from partner_os_v2.domain import is_high_risk
 from partner_os_v2.models import AIRecommendation, AISession, ApprovalGate, User
 from partner_os_v2.schemas import (
     AIRecommendationCreate,
@@ -18,6 +21,7 @@ from partner_os_v2.schemas import (
     AISessionOut,
     ApprovalDecisionRequest,
     ApprovalGateOut,
+    ErrorCode,
 )
 from partner_os_v2.services.ai_gateway import (
     AIResponseError,
@@ -33,9 +37,26 @@ from partner_os_v2.services.audit import log_event
 router = APIRouter(prefix="/api/v1/ai", tags=["ai"])
 
 
-@router.post("/sessions", response_model=AISessionOut)
+@router.post(
+    "/sessions",
+    response_model=AISessionOut,
+    responses=error_responses(401),
+)
 def create_session(
-    payload: AISessionCreate,
+    payload: AISessionCreate = Body(
+        ...,
+        openapi_examples={
+            "default": {
+                "summary": "Create lead-linked AI session",
+                "value": {
+                    "entity_type": "lead",
+                    "entity_id": "7ab22ea8-2c4a-41b8-bbb7-2abdf67d1b91",
+                    "context_payload": {"intent": "initial_contact"},
+                    "prompt_version": "v1",
+                },
+            }
+        },
+    ),
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ) -> AISessionOut:
@@ -62,16 +83,32 @@ def create_session(
     return AISessionOut.model_validate(session, from_attributes=True)
 
 
-@router.post("/recommendations", response_model=AIRecommendationOut)
+@router.post(
+    "/recommendations",
+    response_model=AIRecommendationOut,
+    responses=error_responses(401, 404, 503),
+)
 def create_recommendation(
-    payload: AIRecommendationCreate,
+    payload: AIRecommendationCreate = Body(
+        ...,
+        openapi_examples={
+            "default": {
+                "summary": "Generate recommendation",
+                "value": {
+                    "session_id": "f4cd2b41-8a6f-49f2-8f29-3232c4a9f663",
+                    "action": "lead_transition_attempted_contact",
+                    "context_override": {"message": "Call and qualify motivation"},
+                },
+            }
+        },
+    ),
     db: Session = Depends(get_db),
     settings: Settings = Depends(get_app_settings),
     user: User = Depends(get_current_user),
 ) -> AIRecommendationOut:
     ai_session = db.get(AISession, payload.session_id)
     if ai_session is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="AI session not found")
+        raise api_error(status.HTTP_404_NOT_FOUND, ErrorCode.ENTITY_NOT_FOUND, "AI session not found")
 
     gateway = GeminiGateway(settings)
     try:
@@ -101,16 +138,14 @@ def create_recommendation(
             payload={"blocked_action_id": blocked.blocked_action_id, "reason": str(exc)},
         )
         db.commit()
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail={
-                "code": "ai_runtime_unavailable",
-                "message": str(exc),
-                "blocked_action_id": blocked.blocked_action_id,
-            },
+        raise api_error(
+            status.HTTP_503_SERVICE_UNAVAILABLE,
+            ErrorCode.AI_RUNTIME_UNAVAILABLE,
+            str(exc),
+            {"blocked_action_id": blocked.blocked_action_id},
         ) from exc
     except AIResponseError as exc:
-        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc)) from exc
+        raise api_error(status.HTTP_503_SERVICE_UNAVAILABLE, ErrorCode.AI_RESPONSE_INVALID, str(exc)) from exc
 
     set_ai_state(db, "normal")
     recommendation = AIRecommendation(
@@ -164,25 +199,43 @@ def create_recommendation(
     )
 
 
-@router.post("/recommendations/{recommendation_id}/approve", response_model=ApprovalGateOut)
+@router.post(
+    "/recommendations/{recommendation_id}/approve",
+    response_model=ApprovalGateOut,
+    responses=error_responses(400, 401, 403, 404),
+)
 def approve_recommendation(
     recommendation_id: str,
-    payload: ApprovalDecisionRequest,
+    payload: ApprovalDecisionRequest = Body(
+        ...,
+        openapi_examples={
+            "approve": {
+                "summary": "Approve recommendation",
+                "value": {"decision": "approved", "reason": "Manager confirms direction"},
+            },
+            "reject": {
+                "summary": "Reject recommendation",
+                "value": {"decision": "rejected", "reason": "Insufficient evidence"},
+            },
+        },
+    ),
     db: Session = Depends(get_db),
     user: User = Depends(require_roles("admin", "manager")),
 ) -> ApprovalGateOut:
     gate = db.scalar(select(ApprovalGate).where(ApprovalGate.recommendation_id == recommendation_id))
     if gate is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Approval gate not found")
+        raise api_error(status.HTTP_404_NOT_FOUND, ErrorCode.ENTITY_NOT_FOUND, "Approval gate not found")
 
     if payload.decision not in {"approved", "rejected"}:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Decision must be approved or rejected")
+        raise api_error(
+            status.HTTP_400_BAD_REQUEST,
+            ErrorCode.VALIDATION_ERROR,
+            "Decision must be approved or rejected",
+        )
 
     gate.decision = payload.decision
     gate.decision_reason = payload.reason
     gate.decided_by = user.user_id
-    from datetime import datetime, timezone
-
     gate.decided_at = datetime.now(timezone.utc)
 
     recommendation = db.get(AIRecommendation, recommendation_id)
@@ -208,7 +261,7 @@ def approve_recommendation(
     return ApprovalGateOut.model_validate(gate, from_attributes=True)
 
 
-@router.get("/sessions/{session_id}")
+@router.get("/sessions/{session_id}", responses=error_responses(401, 404))
 def get_session(
     session_id: str,
     include_recommendations: bool = Query(default=True),
@@ -217,7 +270,7 @@ def get_session(
 ):
     ai_session = db.get(AISession, session_id)
     if ai_session is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="AI session not found")
+        raise api_error(status.HTTP_404_NOT_FOUND, ErrorCode.ENTITY_NOT_FOUND, "AI session not found")
 
     body = {
         "session": AISessionOut.model_validate(ai_session, from_attributes=True).model_dump(),

@@ -7,6 +7,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from partner_os_v2.api.deps import get_current_user
+from partner_os_v2.api.errors import error_responses
 from partner_os_v2.db import get_db
 from partner_os_v2.models import AuditEvent, User
 from partner_os_v2.schemas import TimelineEventOut
@@ -14,7 +15,7 @@ from partner_os_v2.schemas import TimelineEventOut
 router = APIRouter(prefix="/api/v1", tags=["timeline"])
 
 
-@router.get("/timeline", response_model=list[TimelineEventOut])
+@router.get("/timeline", response_model=list[TimelineEventOut], responses=error_responses(401))
 def list_timeline(
     entity_type: str | None = None,
     entity_id: str | None = None,

@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Body, Depends
 from sqlalchemy.orm import Session
 
 from partner_os_v2.api.deps import get_app_settings, get_current_user
+from partner_os_v2.api.errors import error_responses, workflow_http_error
 from partner_os_v2.config import Settings
 from partner_os_v2.db import get_db
 from partner_os_v2.models import Case, User
@@ -16,20 +17,39 @@ from partner_os_v2.services.workflow import WorkflowError, require_recommendatio
 router = APIRouter(prefix="/api/v1/cases", tags=["cases"])
 
 
-@router.post("", response_model=CaseOut)
+@router.post(
+    "",
+    response_model=CaseOut,
+    responses=error_responses(401, 409),
+)
 def create_case(
-    payload: CaseCreate,
+    payload: CaseCreate = Body(
+        ...,
+        openapi_examples={
+            "default": {
+                "summary": "Create case",
+                "value": {
+                    "linked_deal_id": "8bf8eac1-08a9-42cd-9331-524fafe6d2ea",
+                    "title": "Urgent roof leak inspection",
+                    "case_type": "Maintenance",
+                    "priority": "high",
+                    "severity": "critical",
+                    "recommendation_id": "19498be1-9a5c-4da9-9ff0-5d8af6af9ef7",
+                },
+            }
+        },
+    ),
     db: Session = Depends(get_db),
     settings: Settings = Depends(get_app_settings),
     user: User = Depends(get_current_user),
 ) -> CaseOut:
     if settings.require_ai_recommendation and not payload.recommendation_id:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Recommendation required")
+        raise workflow_http_error("Recommendation required")
     if payload.recommendation_id:
         try:
             require_recommendation_exists(db, payload.recommendation_id)
         except WorkflowError as exc:
-            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
+            raise workflow_http_error(str(exc)) from exc
 
     case_obj = Case(
         linked_deal_id=payload.linked_deal_id,
@@ -56,10 +76,26 @@ def create_case(
     return CaseOut.model_validate(case_obj, from_attributes=True)
 
 
-@router.post("/{case_id}/transitions", response_model=CaseOut)
+@router.post(
+    "/{case_id}/transitions",
+    response_model=CaseOut,
+    responses=error_responses(401, 404, 409, 503),
+)
 def transition_case(
     case_id: str,
-    payload: TransitionRequest,
+    payload: TransitionRequest = Body(
+        ...,
+        openapi_examples={
+            "default": {
+                "summary": "Case transition",
+                "value": {
+                    "to_state": "in_progress",
+                    "recommendation_id": "3f90f1bf-ea91-44af-93ca-719f9e95389f",
+                    "reason": "AI suggests immediate dispatch",
+                },
+            }
+        },
+    ),
     db: Session = Depends(get_db),
     settings: Settings = Depends(get_app_settings),
     user: User = Depends(get_current_user),
@@ -77,14 +113,7 @@ def transition_case(
             actor_role=user.role,
         )
     except WorkflowError as exc:
-        msg = str(exc)
-        if msg.startswith("DEGRADED:"):
-            blocked_id = msg.split(":", maxsplit=1)[1]
-            raise HTTPException(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail={"code": "degraded_mode", "blocked_action_id": blocked_id},
-            ) from exc
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=msg) from exc
+        raise workflow_http_error(str(exc)) from exc
 
     db.commit()
     db.refresh(case_obj)

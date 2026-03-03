@@ -41,3 +41,21 @@ def test_openapi_has_ai_schema_shapes():
     ai_props = components["AIRecommendationOut"].get("properties", {})
     for required_prop in ["recommendation_id", "action", "rationale", "confidence", "approval_required"]:
         assert required_prop in ai_props
+
+
+def test_openapi_has_error_code_enum_and_examples():
+    spec = app.openapi()
+    components = spec.get("components", {}).get("schemas", {})
+    assert "ErrorCode" in components
+    enum_values = set(components["ErrorCode"].get("enum", []))
+    for required in {"unauthorized", "forbidden", "recommendation_required", "ai_runtime_unavailable"}:
+        assert required in enum_values
+
+    lead_transition = spec["paths"]["/api/v1/leads/{lead_id}/transitions"]["post"]
+    responses = lead_transition.get("responses", {})
+    assert "409" in responses
+    assert "503" in responses
+
+    ai_recommendation = spec["paths"]["/api/v1/ai/recommendations"]["post"]
+    request_body = ai_recommendation.get("requestBody", {}).get("content", {}).get("application/json", {})
+    assert "examples" in request_body

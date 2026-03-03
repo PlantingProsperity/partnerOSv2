@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from enum import StrEnum
 from typing import Any
 
 from pydantic import BaseModel, Field
@@ -10,6 +11,33 @@ from pydantic import BaseModel, Field
 
 class ErrorResponse(BaseModel):
     error: dict[str, Any]
+
+
+class ErrorCode(StrEnum):
+    UNAUTHORIZED = "unauthorized"
+    FORBIDDEN = "forbidden"
+    VALIDATION_ERROR = "validation_error"
+    ENTITY_NOT_FOUND = "entity_not_found"
+    INVALID_TRANSITION = "invalid_transition"
+    RECOMMENDATION_REQUIRED = "recommendation_required"
+    RECOMMENDATION_NOT_FOUND = "recommendation_not_found"
+    RECOMMENDATION_REJECTED = "recommendation_rejected"
+    RECOMMENDATION_ENTITY_MISMATCH = "recommendation_entity_mismatch"
+    APPROVAL_REQUIRED = "approval_required"
+    AI_RUNTIME_UNAVAILABLE = "ai_runtime_unavailable"
+    DEGRADED_MODE = "degraded_mode"
+    AI_RESPONSE_INVALID = "ai_response_invalid"
+    WORKFLOW_ERROR = "workflow_error"
+
+
+class APIErrorDetail(BaseModel):
+    code: ErrorCode
+    message: str
+    meta: dict[str, Any] = Field(default_factory=dict)
+
+
+class APIErrorResponse(BaseModel):
+    error: APIErrorDetail
 
 
 class LoginRequest(BaseModel):
